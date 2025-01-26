@@ -1,14 +1,17 @@
 import 'dart:convert';
 import 'dart:ui';
+import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 
 import 'package:flutter/material.dart';
+import 'package:weather_app/Weather.dart';
 import 'package:weather_app/additional_information_card.dart';
+import 'package:weather_app/chart.dart';
 import 'package:weather_app/hourly_card.dart';
 import 'package:http/http.dart' as http;
 
 class WeatherScreen extends StatefulWidget {
-  final Function toggle_theme;
+  final VoidCallback toggle_theme;
   const WeatherScreen({super.key,required this.toggle_theme});
 
   @override
@@ -16,16 +19,19 @@ class WeatherScreen extends StatefulWidget {
 }
 
 class _WeatherScreenState extends State<WeatherScreen> {
-  String pressure = '';
-  String temp = '';
-  String humidity = '';
-  String wind_speed = '';
+  double? latitude;
+  double? longitude;
+
+  double pressure = 0;
+  double temp = 0;
+  int humidity = 0;
+  double wind_speed = 0;
   String time = '';
-  List<dynamic> hour=[];
-  List<dynamic> hourly_temp=[];
-  List<dynamic> hourly_weather=[];
   int weather=0;
   String unit='';
+  List<String> hour=[];
+  List<double> hourly_temp=[];
+  List<int> hourly_weather=[];
 
   @override
   void initState() {
@@ -33,18 +39,66 @@ class _WeatherScreenState extends State<WeatherScreen> {
     get_weather_info_api();
   }
 
-  Future<Map<String, dynamic>> get_weather_info_api() async {
-    final res = await http.get(
-      Uri.parse("https://api.open-meteo.com/v1/forecast?latitude=23.7104&longitude=90.4074&current=temperature_2m,relative_humidity_2m,weather_code,surface_pressure,wind_speed_10m&hourly=temperature_2m,weather_code"),
+  Future<Weather> get_weather_info_api() async {
+    bool service_enabled;
+    LocationPermission permission;
+
+    service_enabled=await Geolocator.isLocationServiceEnabled();
+    if(!service_enabled){
+      setState(() {
+        AlertDialog(
+          title: Text("Location Not found"),
+          content: Text("Please turn on Location"),
+          actions: [
+            TextButton(
+              onPressed: (){
+                Navigator.pop(context,'Ok');
+              },
+              child: const Text("Ok"),
+            ),
+          ],
+        );
+      });
+    }
+
+    permission=await Geolocator.checkPermission();
+    if(permission==LocationPermission.denied){
+      permission=await Geolocator.requestPermission();
+      if(permission==LocationPermission.denied){
+        AlertDialog(
+          title: Text("Location Not found"),
+          content: Text("Please turn on Location"),
+          actions: [
+            TextButton(
+              onPressed: (){
+                Navigator.pop(context,'Ok');
+              },
+              child: const Text("Ok"),
+            ),
+          ],
+        );
+      }
+    }
+
+    Position position=await Geolocator.getCurrentPosition(
+      locationSettings:LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 100,
+      ),
     );
 
-    final data = jsonDecode(res.body);
+    latitude = position.latitude;
+    longitude = position.longitude;
 
+    // latitude = 23.7104;
+    // longitude = 90.407;
+
+    final res = await http.get(Uri.parse("https://api.open-meteo.com/v1/forecast?latitude=$latitude&longitude=$longitude&current=temperature_2m,relative_humidity_2m,weather_code,surface_pressure,wind_speed_10m&hourly=temperature_2m,weather_code"),);
+    final data = jsonDecode(res.body);
     if (data.containsKey("error")) {
       throw "An Unexpected Error occurred";
     }
-
-    return data;
+    return Weather.fromJson(data);
   }
 
   @override
@@ -71,11 +125,11 @@ class _WeatherScreenState extends State<WeatherScreen> {
             onPressed: () {
               widget.toggle_theme();
             },
-            icon: const Icon(Icons.dark_mode),
+            icon: const Icon(Icons.lightbulb),
           )
         ],
       ),
-      body: FutureBuilder(
+      body: FutureBuilder<Weather>(
         future: get_weather_info_api(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting){
@@ -87,17 +141,17 @@ class _WeatherScreenState extends State<WeatherScreen> {
           }
 
           if(snapshot.hasData){
-            final data=snapshot.data!;
-            pressure = data['current']['surface_pressure'].toString();
-            time = data['current']['time'];
-            temp = data['current']['temperature_2m'].toString();
-            unit=data['current_units']['temperature_2m'];
-            humidity = data['current']['relative_humidity_2m'].toString();
-            wind_speed = data['current']['wind_speed_10m'].toString();
-            weather=data['current']['weather_code'];
-            hour=data['hourly']['time'];
-            hourly_temp=data['hourly']['temperature_2m'];
-            hourly_weather=data['hourly']['weather_code'];
+            final weather_data=snapshot.data!;
+            pressure = weather_data.current.surfacePressure;
+            time = weather_data.current.time;
+            temp = weather_data.current.temperature2M;
+            unit = weather_data.currentUnits.temperature2M;
+            humidity = weather_data.current.relativeHumidity2M;
+            wind_speed = weather_data.current.windSpeed10M;
+            weather = weather_data.current.weatherCode;
+            hour = weather_data.hourly.time;
+            hourly_temp = weather_data.hourly.temperature2M;
+            hourly_weather = weather_data.hourly.weatherCode;
           }
 
 
@@ -119,23 +173,18 @@ class _WeatherScreenState extends State<WeatherScreen> {
                           child: Column(
                             children: [
                               Text(
-                                temp+unit,
+                                temp.toString()+unit,
                                 style: const TextStyle(
                                   fontSize: 32,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              Icon(
-                                weather==0 ? Icons.sunny:Icons.cloud,
-                                size: 64,
-                              ),
+                              Icon(weather==0?Icons.sunny:Icons.cloud,size: 64),
                               const SizedBox(height: 16),
                               Text(
                                 weather==0?"Clear Sky":"Cloudy Sky",
-                                style: TextStyle(
-                                  fontSize: 20,
-                                ),
+                                style: TextStyle(fontSize:20),
                               ),
                             ],
                           ),
@@ -147,31 +196,39 @@ class _WeatherScreenState extends State<WeatherScreen> {
                 const SizedBox(height: 20),
                 const Text(
                   "Weather Forecast",
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 10),
                 SizedBox(
-                  height: 120,
-                  child: ListView.builder(
-                    itemCount: 24,
-                    scrollDirection: Axis.horizontal,
-                    itemBuilder: (context,index){
-                      DateTime parsedTime = DateTime.parse(hour[index]);
-                      String formatted_time = DateFormat('hh:mm a').format(parsedTime);
-                      return HourlyCard(time: formatted_time, icon: hourly_weather[index]==0?Icons.sunny:Icons.cloud, temp: hourly_temp[index].toString()+unit);
-                    }
+                  height: 140,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: ListView.builder(
+                      itemCount: 24,
+                      scrollDirection: Axis.horizontal,
+                      itemBuilder: (context,index){
+                        DateTime parsedTime = DateTime.parse(hour[index]);
+                        String formatted_time = DateFormat('hh:mm a').format(parsedTime);
+                        return HourlyCard(time: formatted_time, icon: hourly_weather[index]==0?Icons.sunny:Icons.cloud, temp: hourly_temp[index].toString()+unit);
+                      }
+                    ),
                   ),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: (){
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder:(context){
+                        return ForecastChart(hours:hour, temps:hourly_temp);
+                      },
+                    ));
+                  },
+                  child:Text('View Chart'),
                 ),
                 const SizedBox(height: 20),
                 const Text(
                   "Additional Information",
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 24,fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 10,),
                 Row(

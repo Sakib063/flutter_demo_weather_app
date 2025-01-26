@@ -26,24 +26,12 @@ class HourlyCard extends StatelessWidget {
               children: [
                 Text(
                   time,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16,fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(
-                  height: 8,
-                ),
-                Icon(
-                  icon,
-                  size: 32,
-                ),
-                const SizedBox(
-                  height: 8,
-                ),
-                Text(
-                  temp,
-                ),
+                const SizedBox(height: 8),
+                Icon(icon, size: 32),
+                const SizedBox(height: 8),
+                Text(temp),
               ],
             ),
           ),

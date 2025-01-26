@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class AdditionalInformationCard extends StatelessWidget{
   final IconData icon;
   final String status;
-  final String value;
+  final dynamic value;
 
   const AdditionalInformationCard({
     super.key,
@@ -29,7 +29,7 @@ class AdditionalInformationCard extends StatelessWidget{
         ),
         const SizedBox(height: 8),
         Text(
-          value,
+          value.toString(),
           style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,

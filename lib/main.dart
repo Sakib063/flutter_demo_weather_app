@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:weather_app/chart.dart';
+import 'package:weather_app/theme_controller.dart';
 import 'package:weather_app/weather_screen.dart';
 
 void main() {
@@ -13,11 +15,27 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  ThemeController _themeController=ThemeController();
   bool _isDarkMode = false;
 
-  void _toggle_theme(){
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    _loadTheme();
+  }
+
+  Future<void> _loadTheme() async{
+    await _themeController.load_theme();
     setState(() {
-      _isDarkMode=!_isDarkMode;
+      _isDarkMode=_themeController.isDarkMode;
+    });
+  }
+
+  Future<void> _toggleTheme() async{
+    await _themeController.toggle_theme();
+    setState(() {
+      _isDarkMode=_themeController.isDarkMode;
     });
   }
 
@@ -29,7 +47,7 @@ class _MyAppState extends State<MyApp> {
       darkTheme: ThemeData.dark(),
       themeMode: _isDarkMode?ThemeMode.dark:ThemeMode.light,
       debugShowCheckedModeBanner: false,
-      home: WeatherScreen(toggle_theme: _toggle_theme),
+      home: WeatherScreen(toggle_theme: _toggleTheme),
     );
   }
 }

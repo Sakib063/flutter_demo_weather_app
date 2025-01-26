@@ -1,29 +1,18 @@
-import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class ThemeController extends StatefulWidget {
-  const ThemeController({super.key});
 
-  @override
-  State<ThemeController> createState() => _ThemeControllerState();
-}
+class ThemeController{
+  final prefs=SharedPreferencesAsync();
+  bool _isDarkMode = false;
 
-class _ThemeControllerState extends State<ThemeController> {
-  bool _isDarkTheme = false;
+  bool get isDarkMode=>_isDarkMode;
 
-  ThemeData light=ThemeData(
-    brightness: Brightness.light,
-    appBarTheme: const AppBarTheme(color: Colors.blue),
-  );
+  Future<void> load_theme() async{
+    _isDarkMode=await prefs.getBool('theme_preference')??false;
+  }
 
-  ThemeData dark=ThemeData(
-    brightness: Brightness.dark,
-    appBarTheme: const AppBarTheme(color: Colors.black),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: _isDarkTheme?dark:light,
-    );
+  Future<void> toggle_theme() async{
+    _isDarkMode=!_isDarkMode;
+    await prefs.setBool('theme_preference',_isDarkMode);
   }
 }
